@@ -22,9 +22,10 @@ falls back to cloud. Add one, run `kaja config wizard`, or start with `kaja --cl
 plaintext fallback. Use `kaja --local`, or unlock or install a keychain (on Linux, a Secret Service
 provider such as GNOME Keyring or KWallet).
 
-**`kaja abilities update` fails.** It needs `git` 2.25 or newer, and `kaja doctor` shows the version it
-found. A private or mistyped [`[marketplace]`](/configuration/config#marketplace) `url` fails instead of
-asking for a password. Also check that `[marketplace] enabled` isn't `false`.
+**`kaja abilities update` fails.** It downloads from GitHub, so check you're online. A mistyped
+[`[marketplace]`](/configuration/config#marketplace) source, or a private repo without
+[`[marketplace] github_token`](/configuration/secrets), fails with "not found (or private, and no token gives
+access)". Also check that `[marketplace] enabled` isn't `false`.
 
 **An ability doesn't show up.** A chat only gets the abilities its persona lists in `abilities` (see
 [Personas](/abilities/personas#abilities)); `kaja abilities` shows which personas use each one. One that needs

@@ -232,10 +232,10 @@ erDiagram
   provider ||--o{ model : offers
 ```
 
-- `ability` rows come from the repo's `marketplace/` folder, synced hourly and on demand (see
+- `ability` rows come from the marketplace repos (`MARKETPLACE_SOURCES`), synced hourly and on demand (see
   [Marketplace internals](/development/marketplace)). A sync never deletes: an ability that leaves gets `removed_at`, and comes back if it returns.
 - Every user has every available ability; each persona's `abilities` list picks what a turn uses, so there's
-  no per-user switch. `marketplace_sync` is a single row that lets an unchanged branch skip the download.
+  no per-user switch. `marketplace_sync` is a single row holding each source's commit, so an unchanged set of sources skips the download.
 - Personas and datasets are `ability` rows too (type `persona` and `dataset`), synced like skills; datasets
   come with the personas that use them. There is no separate persona table.
 

@@ -33,6 +33,10 @@ owner_ids = [123456789]
   # Works without a key; one lifts its limits (header Authorization).
   # [abilities.context7]
   # api_key = ""
+
+# A private marketplace repo in settings.toml's [marketplace] sources; only sent to api.github.com
+[marketplace]
+github_token = "github_pat_..."
 ```
 
 A missing section just turns that feature off. The template ships with every section commented out. The

@@ -79,8 +79,7 @@ commands.
 | --- | --- |
 | `enabled` | `false` means Kaja never goes online for abilities: `kaja abilities update` refuses and nothing is fetched. What's already in `marketplace/` still loads. Default `true` |
 | `autoFetch` | pull the [marketplace](/abilities) in the background at startup when the last sync is over a day old, silently on failure. Changes apply on the next launch. Default `true` |
-| `url` | the git URL (or local path) of the repo whose `marketplace/` folder `kaja abilities update` fetches: a fork, or a checkout with your changes. Default the Kaja repo |
-| `ref` | the branch or tag to fetch. Default `main` |
+| `sources` | where `kaja abilities update` fetches from, in order: a GitHub `"owner/repo"`, `"owner/repo#branch-or-tag"`, or a folder on your machine (starting with `/`, `.` or `~`, read as it is). They're merged, and a later source replaces an ability or persona of the same name from an earlier one. A private repo needs [`[marketplace] github_token`](/configuration/secrets) in secrets.toml. Default `["kajaio/marketplace"]` |
 
 ## `[context]`
 

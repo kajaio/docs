@@ -9,12 +9,25 @@ icon: 🏪
 
 # Marketplace internals
 
-The user side is on [Abilities](/abilities). This page is how the two copies of the `marketplace/` folder
-are kept.
+The user side is on [Abilities](/abilities). This page is how the copies of the marketplace are kept.
 
-There's no publishing flow and no registry service. The repo owner adds a file, and two consumers copy the
-folder on their own schedule. The copies are separate and can sit at different commits: the terminal never
-talks to the API's copy, and the API never reads anyone's disk.
+The marketplace is its own repos: [kajaio/marketplace](https://github.com/kajaio/marketplace) (public) and
+`kajaio/darkmarket` (private), each holding `abilities/`, `personas/` and `datasets/` at its root. There's no
+publishing flow and no registry service. The owner commits a file, and each consumer (the terminal, the API,
+the MCP sandbox) downloads the repos it's configured with on its own schedule. The copies are separate and
+can sit at different commits: the terminal never talks to the API's copy, and the API never reads anyone's
+disk.
+
+All three use one fetcher, `@kaja/nasi`'s `sources.ts`:
+
+- A source is a GitHub `owner/repo`, `owner/repo#ref` (default `main`), or a folder on disk (development).
+- It asks GitHub for each repo's commit (`Accept: application/vnd.github.sha`), then downloads that commit's
+  tarball (capped at 50 MB) and unpacks it with `Bun.Archive`, so nothing needs `git` or `tar`. A public
+  repo comes from `codeload.github.com`; a token (needed for a private one) is only ever sent to
+  `api.github.com`.
+- Only `abilities/`, `personas/` and `datasets/` are kept, so a repo's CI files and README never reach users.
+- Sources merge in order. A later one replaces an earlier one's whole ability folder, persona file or
+  dataset, so two repos' files never mix inside one ability.
 
 ```mermaid
 ---
@@ -23,10 +36,10 @@ config:
   theme: neo-dark
 ---
 flowchart LR
-    REPO[["<b>GitHub repo</b><br><small>marketplace/ folder</small>"]]
+    REPO[["<b>GitHub repos</b><br><small>kajaio/marketplace, kajaio/darkmarket</small>"]]
 
     subgraph LOCAL["your machine"]
-        CACHE["git cache<br><small>sparse checkout</small>"]
+        CACHE["merged cache<br><small>tarballs, later wins</small>"]
         FOLDER["~/.config/kaja/marketplace/<br><small>personas pick abilities</small>"]
     end
 
@@ -35,8 +48,11 @@ flowchart LR
         PG[("Postgres<br><small>ability table</small>")]
     end
 
+    SANDBOX["MCP sandbox<br><small>stdio manifests, at start</small>"]
+
     REPO -->|"kaja abilities update"| CACHE --> FOLDER
-    REPO -->|"GitHub API + tarball"| SYNC --> PG
+    REPO -->|"GitHub API + tarballs"| SYNC --> PG
+    REPO -->|"public repo"| SANDBOX
 ```
 
 Each kind has one manifest format, checked by the schemas in [`@kaja/schema/abilities`](/development/schema).
@@ -54,19 +70,21 @@ config:
 ---
 sequenceDiagram
     participant K as kaja abilities update
-    participant C as git cache
+    participant G as GitHub
+    participant C as merged cache
     participant F as marketplace folder
 
-    K->>C: first time: clone --depth 1 --sparse
-    K->>C: fetch --depth 1 origin, reset to FETCH_HEAD
-    C-->>K: the marketplace folder and its commit
+    K->>G: each source's commit, then its tarball
+    K->>C: merge the sources, later ones winning
+    C-->>K: the merged folder and each source's commit
     K->>F: sync against .sync-lock.json
     F-->>K: added, updated, backed up, removed, kept
 ```
 
-- It needs `git` 2.25+ (`clone --sparse`). The version is checked first, and `kaja doctor` shows it. Prompts
-  are off, so a private or mistyped URL fails instead of waiting for a password, and every git call has a
-  two-minute timeout. Changing `[source] url` re-clones.
+- The sources are settings.toml's `[marketplace] sources` (default `kajaio/marketplace`), and a private one
+  needs secrets.toml's `[marketplace] github_token`. Under `KAJA_PROFILE=dev` the default is a
+  `../marketplace` checkout beside the Kaja source, read as a folder, so uncommitted edits sync too.
+- A failed download leaves both the cache and the marketplace folder as they were.
 - Each sync compares three things per file: the upstream copy, the user's copy, and the hash the previous
   sync recorded in `.sync-lock.json`:
 
@@ -108,23 +126,25 @@ sequenceDiagram
     participant D as Postgres
 
     T->>S: startup, hourly, or admin button
-    S->>G: GET /commits/ref (sha only)
-    alt same commit as the last sync
+    S->>G: GET /commits/ref for each source (sha only)
+    alt same commits as the last sync
         S-->>T: nothing changed
-    else the branch moved
-        S->>G: download the commit's tarball
-        S->>S: extract and validate every file
+    else a source moved
+        S->>G: download each commit's tarball
+        S->>S: merge, extract and validate every file
         S->>D: one transaction: upsert each ability,<br/>mark the missing ones removed
-        S->>D: record the commit in marketplace_sync
+        S->>D: record the commits in marketplace_sync
     end
 ```
 
 - **Triggers.** Once at API start-up (in the background), every hour on the hour, and the admins' **Sync
   now** button. Only one sync runs at a time.
-- **Cheap when idle.** The check is one unauthenticated GitHub API call, so the repo must be public. The
-  tarball (capped at 50 MB) is only downloaded when the branch head moved. **Sync now** always downloads it,
-  because a new API build may accept abilities the old one skipped on that same commit.
-- **Which repo.** `MARKETPLACE_REPO` (default `kajaio/kaja`) and `MARKETPLACE_REF` (default `main`).
+- **Cheap when idle.** The check is one GitHub API call per source. The tarballs are only downloaded when a
+  source's head moved. **Sync now** always downloads them, because a new API build may accept abilities the
+  old one skipped on those same commits. A folder source (development) is re-read on every sync.
+- **Which repos.** `MARKETPLACE_SOURCES` (comma-separated, default `kajaio/marketplace`), plus
+  `MARKETPLACE_GITHUB_TOKEN` for a private one such as `kajaio/darkmarket`. The recorded commit is each
+  source's `owner/repo#ref@sha`, comma-separated.
 - **Failures** are recorded in the single `marketplace_sync` row, shown in the admin panel, and reported to
   Sentry. The previous catalog stays in place.
 - **Nothing is deleted.** An ability that leaves the folder gets `removed_at`. Users' selections survive and
@@ -142,6 +162,22 @@ the catalog:
   configured;
 - anything whose manifest no longer parses.
 
+## The sandbox's copy
+
+The [MCP sandbox](https://github.com/kajaio/kaja/tree/main/apps/sandbox#readme) only needs the stdio
+`mcp.toml` manifests. It fetches `MARKETPLACE_SOURCES` (default `kajaio/marketplace`) once at startup into
+`SANDBOX_STATE_DIR/marketplace`, and keeps the last copy when that fails. So a changed manifest needs a
+restart, not a new image. `MARKETPLACE_DIR` points it at a folder instead (development, tests).
+Community sandboxes get no token, so a private repo's stdio abilities run only on a sandbox started with it.
+
+## Checking the content
+
+Kaja's `bun test:marketplace` loads a `../marketplace` checkout (or `KAJA_MARKETPLACE_DIR`) the way the hosts
+do: every skill, HTTP tool, MCP server and code tool must load, stdio packages must be pinned, and the
+sandbox image must run what it should. Kaja's CI clones the public repo there first, so a schema change that
+breaks the marketplace fails in Kaja. The marketplace repo's own CI runs the same tests against a Kaja
+checkout, and `tombi lint` against the JSON Schemas Kaja publishes in `config/schemas`.
+
 ## Loading
 
 Whichever front door a turn comes in through, [`@kaja/nasi`](/development/nasi#abilities) does the loading.
@@ -152,7 +188,7 @@ are rebuilt every turn, which is why a change applies from the next message.
 
 | Front door | Where the personas come from |
 | --- | --- |
-| terminal (local), local Telegram bot | the `marketplace/` folder |
+| terminal (local), local Telegram bot | the `~/.config/kaja/marketplace/` folder |
 | terminal (cloud), cloud Telegram bot | the `ability` table (with the user's keys) |
 | widget | the `ability` table, skills only, starting from the key's persona |
 

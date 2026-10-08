@@ -9,9 +9,10 @@ icon: 🛒
 
 # Marketplace
 
-Abilities come from the **marketplace**, a curated
-[`marketplace/`](https://github.com/kajaio/kaja/tree/main/marketplace) folder in the Kaja repo, and in local
-mode also from files you write yourself.
+Abilities come from the **marketplace**, the curated
+[kajaio/marketplace](https://github.com/kajaio/marketplace) repo, and in local mode also from files you write
+yourself. Kaja can pull more than one marketplace repo and merge them, so a private one can add to the public
+one.
 
 | Kind | What it gives the agent | Read more |
 | --- | --- | --- |
@@ -34,8 +35,8 @@ Right now the marketplace has:
 
 ## In local mode
 
-`kaja abilities update` fetches the marketplace with `git` (2.25 or newer) and syncs it into
-`~/.config/kaja/marketplace/`, next to your own abilities:
+`kaja abilities update` downloads each marketplace repo (no `git` needed), merges them, and syncs the result
+into `~/.config/kaja/marketplace/`, next to your own abilities:
 
 ```ini
 ~/.config/kaja/marketplace/
@@ -57,8 +58,8 @@ The sync never loses your edits:
 
 Besides `kaja abilities update`, Kaja goes online on the first `kaja abilities` (it fetches once before
 listing), and with a background pull at startup when the last sync is over a day old. That one applies on
-the next launch. You can turn both off in [`[marketplace]`](/configuration/config#marketplace), which also
-takes a `url` and `ref` to fetch from a fork, a branch or a local checkout.
+the next launch. You can turn both off in [`[marketplace]`](/configuration/config#marketplace), whose `sources`
+also says where to fetch from: other repos, a branch, or a folder on your machine.
 
 Every valid ability and persona in the folder loads, your own included. `kaja abilities` lists them: each
 ability's parts, whether its key is saved, what a stdio MCP server runs (or what to install for it), and the personas that use it.
@@ -102,13 +103,14 @@ Datasets come with the personas that use them.
 
 ## Adding to the marketplace
 
-Only the repo owner adds entries, by committing under `marketplace/` (a merged pull request counts). To try
-one first:
+Only the repo owner adds entries, by committing to [kajaio/marketplace](https://github.com/kajaio/marketplace)
+(a merged pull request counts). Its CI checks every file the way Kaja loads it. To try one first:
 
-1. Put it in a copy of the repo, following the
-   [marketplace README](https://github.com/kajaio/kaja/blob/main/marketplace/README.md).
-2. Point [`[marketplace]`](/configuration/config#marketplace)'s `url` at that copy, run
-   `kaja abilities update`, and list it in a persona's `abilities`.
+1. Put it in a clone of the repo, following the
+   [marketplace README](https://github.com/kajaio/marketplace/blob/main/README.md).
+2. Point [`[marketplace]`](/configuration/config#marketplace)'s `sources` at that folder
+   (`sources = ["~/marketplace"]`), run `kaja abilities update`, and list it in a persona's `abilities`.
+   A folder is read as it is, so you don't need to commit first.
 3. `kaja doctor` lists every loaded tool, and anything left out and why.
 
 Once it's merged, local users get it with their next update and the cloud within the hour. How the syncing

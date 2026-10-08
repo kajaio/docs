@@ -70,7 +70,6 @@ bun lint                 # Biome check + tombi TOML format/lint
 bun lint:fix             # apply fixes, including unsafe ones
 bun typecheck            # tsc --noEmit across every workspace
 bun test                 # API integration + CLI unit tests
-bun docs                 # this site, with Jekyll (needs Ruby and `bundle install` in docs/)
 
 bun run ./scripts/mass_user_create.ts [n]   # create n random local users (default 10)
 bun run scripts/barkochba.ts ["secret"]     # self-play the barkochba persona against a thinker
@@ -81,7 +80,7 @@ bun run scripts/barkochba.ts ["secret"]     # self-play the barkochba persona ag
 {: .warning }
 
 After the TUI's first run has written its config (`~/.config/kaja`), link it into the repo to edit it beside
-the code, with the same TOML schemas as the templates in `docs/config/`:
+the code, with the same TOML schemas as the templates in `config/`:
 
 ```sh
 ./scripts/link_user_config.sh   # .user-config -> ~/.config/kaja (gitignored)
@@ -117,8 +116,8 @@ Never hand-edit the outputs of these. Their inputs are the source of truth:
 bun generate:env         # apps/*/.env.example from packages/schema/env/*
 bun check:env            # fail if any .env.example has drifted
 bun generate:env-types   # ambient Bun.Env typings per workspace
-bun generate:schemas     # JSON Schemas for the TOML config files (docs/config/schemas)
-bun generate:models      # docs/config/models.*.toml from docs/config/catalog.toml
+bun generate:schemas     # JSON Schemas for the TOML config files (config/schemas)
+bun generate:models      # config/models.*.toml from config/catalog.toml
 bun check:models         # fail if the model examples have drifted
 bun sync:locales         # give every language the en-GB keys, with placeholders for new text
 bun check:locales        # fail on drift or untranslated placeholders
