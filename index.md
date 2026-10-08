@@ -10,6 +10,9 @@ nav_order: 1
 Give it a task and it keeps looping with an LLM – calling tools, switching personas, remembering
 what matters – until the job is done.
 
+![](images/screenshots/tui001.png)
+
+
 There are two [ways to run](/getting-started/modes) it:
 
 | | **Cloud** | **Local** |
